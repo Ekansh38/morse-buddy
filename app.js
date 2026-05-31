@@ -33,6 +33,30 @@ function getAudioCtx() {
   return audioCtx;
 }
 
+// Continuous tone that plays while holding, stopped on release
+let holdOsc = null;
+let holdGain = null;
+
+function startHoldTone(freq = 600) {
+  const ctx = getAudioCtx();
+  holdOsc = ctx.createOscillator();
+  holdGain = ctx.createGain();
+  holdOsc.type = 'sine';
+  holdOsc.frequency.value = freq;
+  holdGain.gain.value = 0.3;
+  holdOsc.connect(holdGain);
+  holdGain.connect(ctx.destination);
+  holdOsc.start();
+}
+
+function stopHoldTone() {
+  if (holdOsc) {
+    try { holdOsc.stop(); } catch {}
+    holdOsc = null;
+    holdGain = null;
+  }
+}
+
 function playTone(durationMs, freq = 600) {
   const ctx = getAudioCtx();
   const osc = ctx.createOscillator();
@@ -45,9 +69,6 @@ function playTone(durationMs, freq = 600) {
   osc.start(ctx.currentTime);
   osc.stop(ctx.currentTime + durationMs / 1000);
 }
-
-function playDot() { playTone(80); }
-function playDash() { playTone(240); }
 
 // Play a morse string as audio
 async function playMorse(morseStr) {
@@ -366,10 +387,12 @@ function setupTapButton(btnId, inputDisplayId) {
     if (isProcessing) return;
     pressStart = Date.now();
     btn.classList.add('pressing');
+    startHoldTone();
   }
 
   function onUp(e) {
     e.preventDefault();
+    stopHoldTone();
     if (!pressStart || isProcessing) return;
     const duration = Date.now() - pressStart;
     pressStart = 0;
@@ -377,22 +400,20 @@ function setupTapButton(btnId, inputDisplayId) {
 
     if (duration < 200) {
       inputBuffer += '.';
-      playDot();
     } else {
       inputBuffer += '-';
-      playDash();
     }
     updateInputDisplay(inputDisplayId);
 
     if (navigator.vibrate) navigator.vibrate(duration < 200 ? 20 : 40);
 
-    // Schedule auto-submit
     scheduleAutoSubmit(inputDisplayId);
   }
 
   btn.addEventListener('pointerdown', onDown);
   btn.addEventListener('pointerup', onUp);
   btn.addEventListener('pointerleave', () => {
+    stopHoldTone();
     pressStart = 0;
     btn.classList.remove('pressing');
   });

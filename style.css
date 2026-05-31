@@ -228,7 +228,12 @@ h1 {
 }
 
 #complete-screen h2 { font-size: 1.8rem; }
-#complete-screen .action-btn { width: 100%; max-width: 300px; }
+#complete-screen .action-btn {
+  width: 100%;
+  max-width: 300px;
+  flex: 0 0 auto;
+  padding: 16px;
+}
 
 /* REFERENCE HINT */
 .reference-hint {
