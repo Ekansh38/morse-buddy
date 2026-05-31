@@ -24,11 +24,16 @@
     </div>
 
     <div class="prompt-area">
-      <div class="prompt-label">Tap the Morse code for</div>
+      <div class="prompt-label" id="prompt-label-text">Tap the Morse code for</div>
       <div id="prompt-char" class="prompt-char">E</div>
     </div>
 
     <div id="input-display" class="input-display">&nbsp;</div>
+
+    <div class="reverse-area" style="display:none">
+      <input type="text" id="reverse-input" class="reverse-input" maxlength="1" autocomplete="off" autocapitalize="characters" placeholder="?">
+      <button id="reverse-submit-btn" class="action-btn primary">Submit</button>
+    </div>
 
     <div class="controls">
       <button id="tap-btn" class="tap-btn">TAP</button>

@@ -7,23 +7,49 @@ const MORSE = {
   '5':'.....','6':'-....','7':'--...','8':'---..','9':'----.'
 };
 
-// Level definitions
-const LEVELS = [
-  { name: 'Level 1: The Basics',     chars: ['E','T'],                                               desc: 'dot & dash' },
-  { name: 'Level 2: Short Codes',    chars: ['A','I','M','N'],                                       desc: '2-symbol letters' },
-  { name: 'Level 3: Building Up',    chars: ['D','G','K','O','R','S','U','W'],                       desc: '3-symbol letters' },
-  { name: 'Level 4: Full Alphabet',  chars: ['B','C','F','H','J','L','P','Q','V','X','Y','Z'],       desc: '4-symbol letters' },
-  { name: 'Level 5: Numbers',        chars: ['0','1','2','3','4','5','6','7','8','9'],                desc: '0-9' },
-  { name: 'Level 6: A-Z Review',     chars: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split(''),                  desc: 'all letters' },
-  { name: 'Level 7: Everything',     chars: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'.split(''),         desc: 'letters + numbers' },
-  { name: 'Level 8: Common Words',   chars: null, words: ['SOS','HI','OK','GO','NO','YES','HELP','CQ','73','88'], desc: 'words' },
-  { name: 'Level 9: Speed Round',    chars: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split(''),                  desc: 'timed!', timed: true, timeLimit: 6000 },
-  { name: 'Level 10: Free Practice', chars: null, practice: true,                                    desc: 'no pressure' },
+// Cumulative level definitions - each level ADDS new chars to all previous ones
+const LEVEL_NEW_CHARS = [
+  ['E','T'],
+  ['A','I','M','N'],
+  ['D','G','K','O'],
+  ['R','S','U','W'],
+  ['B','C','F','H'],
+  ['J','L','P','Q'],
+  ['V','X','Y','Z'],
+  ['0','1','2','3','4'],
+  ['5','6','7','8','9'],
 ];
 
-const QUESTIONS_PER_LEVEL = 10;
-const PASS_THRESHOLD = 8;
-const AUTO_SUBMIT_DELAY = 1200; // ms of silence before auto-checking
+// Build cumulative char sets
+function buildCumulativeChars() {
+  const cumulative = [];
+  let all = [];
+  for (const group of LEVEL_NEW_CHARS) {
+    all = all.concat(group);
+    cumulative.push([...all]);
+  }
+  return cumulative;
+}
+const CUMULATIVE = buildCumulativeChars();
+
+const LEVELS = [
+  { name: 'Level 1: E and T',          chars: CUMULATIVE[0],  newChars: LEVEL_NEW_CHARS[0], desc: 'E T', questions: 8,  lives: 5 },
+  { name: 'Level 2: + A I M N',        chars: CUMULATIVE[1],  newChars: LEVEL_NEW_CHARS[1], desc: '+ A I M N', questions: 10, lives: 4 },
+  { name: 'Level 3: + D G K O',        chars: CUMULATIVE[2],  newChars: LEVEL_NEW_CHARS[2], desc: '+ D G K O', questions: 10, lives: 4 },
+  { name: 'Level 4: + R S U W',        chars: CUMULATIVE[3],  newChars: LEVEL_NEW_CHARS[3], desc: '+ R S U W', questions: 12, lives: 4 },
+  { name: 'Level 5: + B C F H',        chars: CUMULATIVE[4],  newChars: LEVEL_NEW_CHARS[4], desc: '+ B C F H', questions: 12, lives: 3 },
+  { name: 'Level 6: + J L P Q',        chars: CUMULATIVE[5],  newChars: LEVEL_NEW_CHARS[5], desc: '+ J L P Q', questions: 12, lives: 3 },
+  { name: 'Level 7: + V X Y Z',        chars: CUMULATIVE[6],  newChars: LEVEL_NEW_CHARS[6], desc: 'full alphabet!', questions: 14, lives: 3 },
+  { name: 'Level 8: + 0-4',            chars: CUMULATIVE[7],  newChars: LEVEL_NEW_CHARS[7], desc: '+ numbers 0-4', questions: 12, lives: 3 },
+  { name: 'Level 9: + 5-9',            chars: CUMULATIVE[8],  newChars: LEVEL_NEW_CHARS[8], desc: 'all chars!', questions: 14, lives: 3 },
+  { name: 'Level 10: Survival',        chars: CUMULATIVE[8],  newChars: null, desc: 'how far can you go?', questions: Infinity, lives: 3, survival: true },
+  { name: 'Level 11: Speed Round',     chars: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split(''), newChars: null, desc: '5s per letter', questions: 15, lives: 3, timed: true, timeLimit: 5000 },
+  { name: 'Level 12: Common Words',    chars: null, newChars: null, words: ['SOS','HI','OK','GO','NO','YES','HELP','CQ','73','88'], desc: 'tap full words', questions: 10, lives: 3 },
+  { name: 'Level 13: Reverse Mode',    chars: CUMULATIVE[8],  newChars: null, desc: 'hear it, type the letter', questions: 12, lives: 3, reverse: true },
+  { name: 'Level 14: Free Practice',   chars: null, newChars: null, practice: true, desc: 'no pressure' },
+];
+
+const AUTO_SUBMIT_DELAY = 1200;
 const WORD_AUTO_SUBMIT_DELAY = 1800;
 
 // Audio
@@ -33,7 +59,6 @@ function getAudioCtx() {
   return audioCtx;
 }
 
-// Continuous tone that plays while holding, stopped on release
 let holdOsc = null;
 let holdGain = null;
 
@@ -70,8 +95,7 @@ function playTone(durationMs, freq = 600) {
   osc.stop(ctx.currentTime + durationMs / 1000);
 }
 
-// Play a morse string as audio
-async function playMorse(morseStr) {
+function playMorse(morseStr) {
   const ctx = getAudioCtx();
   let time = ctx.currentTime;
   const dotLen = 0.08;
@@ -83,29 +107,22 @@ async function playMorse(morseStr) {
     if (ch === '.') {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.value = 600;
-      gain.gain.value = 0.3;
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(time);
-      osc.stop(time + dotLen);
+      osc.type = 'sine'; osc.frequency.value = 600; gain.gain.value = 0.3;
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start(time); osc.stop(time + dotLen);
       time += dotLen + gap;
     } else if (ch === '-') {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.value = 600;
-      gain.gain.value = 0.3;
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(time);
-      osc.stop(time + dashLen);
+      osc.type = 'sine'; osc.frequency.value = 600; gain.gain.value = 0.3;
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start(time); osc.stop(time + dashLen);
       time += dashLen + gap;
     } else if (ch === ' ') {
       time += letterGap;
     }
   }
+  return time - ctx.currentTime; // return total duration in seconds
 }
 
 // State
@@ -115,19 +132,20 @@ let currentWord = '';
 let inputBuffer = '';
 let score = 0;
 let questionNum = 0;
+let lives = 0;
+let maxLives = 0;
 let pressStart = 0;
 let timerInterval = null;
 let timerStart = 0;
 let autoSubmitTimeout = null;
-let isProcessing = false; // prevent double-submit
+let isProcessing = false;
+let survivalHighScore = 0;
 
-// Elements
 const $ = id => document.getElementById(id);
 
 function loadProgress() {
-  try {
-    return JSON.parse(localStorage.getItem('morsebuddy') || '{}');
-  } catch { return {}; }
+  try { return JSON.parse(localStorage.getItem('morsebuddy') || '{}'); }
+  catch { return {}; }
 }
 
 function saveProgress(data) {
@@ -142,6 +160,7 @@ function showScreen(id) {
 // MENU
 function renderMenu() {
   const progress = loadProgress();
+  survivalHighScore = progress.survivalHigh || 0;
   const list = $('level-list');
   list.innerHTML = '';
   LEVELS.forEach((level, i) => {
@@ -151,16 +170,18 @@ function renderMenu() {
     if (!unlocked) btn.classList.add('locked');
 
     const completed = progress[`level_${i}`];
+    let extra = '';
+    if (level.survival && survivalHighScore > 0) extra = ` (best: ${survivalHighScore})`;
+
     btn.innerHTML = `
       <div class="level-info">
         <span>${level.name}</span>
-        <span class="level-chars">${level.desc}</span>
+        <span class="level-chars">${level.desc}${extra}</span>
       </div>
       ${completed ? '<span class="check">&#10003;</span>' : ''}
     `;
     btn.addEventListener('click', () => {
       if (!unlocked) return;
-      // Init audio on user gesture
       getAudioCtx();
       if (level.practice) {
         startPractice();
@@ -173,21 +194,35 @@ function renderMenu() {
   showScreen('menu-screen');
 }
 
+// Weighted random: 60% chance of picking from new chars, 40% from old
+function pickChar(level) {
+  const newChars = level.newChars;
+  const allChars = level.chars;
+  if (!newChars || newChars.length === 0 || allChars.length === newChars.length) {
+    return allChars[Math.floor(Math.random() * allChars.length)];
+  }
+  if (Math.random() < 0.6) {
+    return newChars[Math.floor(Math.random() * newChars.length)];
+  }
+  return allChars[Math.floor(Math.random() * allChars.length)];
+}
+
 // GAME
 function startLevel(levelIndex) {
   currentLevel = levelIndex;
   const level = LEVELS[levelIndex];
   score = 0;
   questionNum = 0;
+  lives = level.lives || 3;
+  maxLives = lives;
   isProcessing = false;
   $('level-title').textContent = level.name;
-  updateScore();
+  updateHUD();
 
-  // Remove old timer bar if any
+  // Remove old timer bar
   const oldTimer = document.querySelector('#game-screen .timer-bar-container');
   if (oldTimer) oldTimer.remove();
 
-  // Add timer bar for speed round
   if (level.timed) {
     const container = document.createElement('div');
     container.className = 'timer-bar-container';
@@ -195,9 +230,21 @@ function startLevel(levelIndex) {
     $('game-screen').querySelector('.prompt-area').before(container);
   }
 
-  // Add/remove space button for word levels
+  // Reverse mode setup
+  if (level.reverse) {
+    $('prompt-label-text').textContent = 'You hear it. Type the letter!';
+  } else {
+    $('prompt-label-text').textContent = 'Tap the Morse code for';
+  }
+
   removeSpaceButton();
   if (level.words) addSpaceButton();
+
+  // For reverse mode, hide tap controls and show letter input
+  document.querySelector('.reverse-area').style.display = level.reverse ? '' : 'none';
+  $('input-display').style.display = level.reverse ? 'none' : '';
+  $('tap-btn').style.display = level.reverse ? 'none' : '';
+  $('clear-btn').style.display = level.reverse ? 'none' : '';
 
   showScreen('game-screen');
   nextQuestion();
@@ -205,7 +252,12 @@ function startLevel(levelIndex) {
 
 function nextQuestion() {
   const level = LEVELS[currentLevel];
-  if (questionNum >= QUESTIONS_PER_LEVEL) {
+
+  if (lives <= 0) {
+    endLevel();
+    return;
+  }
+  if (!level.survival && questionNum >= level.questions) {
     endLevel();
     return;
   }
@@ -216,24 +268,43 @@ function nextQuestion() {
   updateInputDisplay('input-display');
   clearFeedback('feedback');
 
-  if (level.words) {
+  if (level.reverse) {
+    // Reverse mode: play morse, user types the letter
+    currentChar = pickChar(level);
+    $('prompt-char').textContent = '?';
+    $('prompt-char').style.fontSize = '5rem';
+    $('reverse-input').value = '';
+    $('reverse-input').focus();
+    // Play the morse after a short delay
+    setTimeout(() => playMorse(MORSE[currentChar]), 400);
+  } else if (level.words) {
     currentWord = level.words[Math.floor(Math.random() * level.words.length)];
     currentChar = currentWord[0];
     $('prompt-char').textContent = currentWord;
     $('prompt-char').style.fontSize = currentWord.length > 3 ? '3.5rem' : '5rem';
   } else {
     currentWord = '';
-    currentChar = level.chars[Math.floor(Math.random() * level.chars.length)];
+    currentChar = pickChar(level);
     $('prompt-char').textContent = currentChar;
     $('prompt-char').style.fontSize = '5rem';
   }
 
-  updateScore();
+  updateHUD();
   if (level.timed) startTimer(level.timeLimit);
 }
 
-function updateScore() {
-  $('score-display').textContent = `${score} / ${questionNum}`;
+function updateHUD() {
+  const level = LEVELS[currentLevel];
+  // Lives display
+  let livesStr = '';
+  for (let i = 0; i < maxLives; i++) {
+    livesStr += i < lives ? '\u2764' : '\u2661';
+  }
+  if (level.survival) {
+    $('score-display').textContent = `${livesStr}  #${questionNum}`;
+  } else {
+    $('score-display').textContent = `${livesStr}  ${questionNum}/${level.questions}`;
+  }
 }
 
 function updateInputDisplay(elementId) {
@@ -258,7 +329,7 @@ function showFeedback(elementId, correct, expected) {
   }
 }
 
-// Timer for speed round
+// Timer
 function startTimer(ms) {
   clearInterval(timerInterval);
   timerStart = Date.now();
@@ -272,7 +343,6 @@ function startTimer(ms) {
     const pct = Math.max(0, 1 - elapsed / ms) * 100;
     bar.style.width = pct + '%';
     if (pct < 30) bar.classList.add('warning');
-
     if (elapsed >= ms) {
       clearInterval(timerInterval);
       handleAnswer(false, getExpected());
@@ -281,13 +351,17 @@ function startTimer(ms) {
 }
 
 function getExpected() {
-  if (LEVELS[currentLevel] && LEVELS[currentLevel].words) {
+  const level = LEVELS[currentLevel];
+  if (level && level.words) {
     return currentWord.split('').map(c => MORSE[c]).join(' ');
+  }
+  if (level && level.reverse) {
+    return currentChar;
   }
   return MORSE[currentChar];
 }
 
-// Auto-submit: check after user stops tapping
+// Auto-submit
 function scheduleAutoSubmit(displayId) {
   clearTimeout(autoSubmitTimeout);
   if (isProcessing) return;
@@ -315,7 +389,12 @@ async function checkAnswer() {
 
   let expected, correct;
 
-  if (level.words) {
+  if (level.reverse) {
+    // Reverse mode: compare typed letter
+    const typed = $('reverse-input').value.trim().toUpperCase();
+    expected = currentChar;
+    correct = typed === expected;
+  } else if (level.words) {
     expected = currentWord.split('').map(c => MORSE[c]).join(' ');
     correct = inputBuffer.trim() === expected;
   } else {
@@ -323,56 +402,89 @@ async function checkAnswer() {
     correct = inputBuffer.trim() === expected;
   }
 
-  // Verify with backend
-  try {
-    const res = await fetch('/api/check', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ char: level.words ? currentWord : currentChar, input: inputBuffer.trim(), isWord: !!level.words })
-    });
-    const data = await res.json();
-    correct = data.correct;
-    expected = data.expected;
-  } catch {
-    // Offline fallback
+  // Backend verify (skip for reverse mode)
+  if (!level.reverse) {
+    try {
+      const res = await fetch('/api/check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ char: level.words ? currentWord : currentChar, input: inputBuffer.trim(), isWord: !!level.words })
+      });
+      const data = await res.json();
+      correct = data.correct;
+      expected = data.expected;
+    } catch {}
   }
 
   handleAnswer(correct, expected);
 }
 
 function handleAnswer(correct, expected) {
-  if (correct) score++;
+  const level = LEVELS[currentLevel];
+  if (correct) {
+    score++;
+  } else {
+    lives--;
+  }
   questionNum++;
+  updateHUD();
+
   showFeedback('feedback', correct, expected);
   if (navigator.vibrate) navigator.vibrate(correct ? 50 : [100, 50, 100]);
 
-  // Play correct answer audio on wrong
   if (!correct) {
-    setTimeout(() => playMorse(expected), 300);
+    if (level.reverse) {
+      // Show the letter and play its morse
+      $('prompt-char').textContent = currentChar;
+      setTimeout(() => playMorse(MORSE[currentChar]), 300);
+    } else {
+      setTimeout(() => playMorse(expected), 300);
+    }
   }
 
-  const delay = correct ? 800 : 1800;
+  const delay = correct ? 800 : 2000;
   setTimeout(() => nextQuestion(), delay);
 }
 
 function endLevel() {
   clearInterval(timerInterval);
   clearTimeout(autoSubmitTimeout);
-  const passed = score >= PASS_THRESHOLD;
+  const level = LEVELS[currentLevel];
 
-  $('complete-title').textContent = passed ? 'Level Complete!' : 'Not Quite...';
-  $('complete-score').textContent = `You got ${score} out of ${QUESTIONS_PER_LEVEL}`;
-  $('complete-msg').textContent = passed
-    ? 'Nice work! Keep going.'
-    : `You need ${PASS_THRESHOLD} to pass. Try again!`;
-
-  const nextExists = currentLevel + 1 < LEVELS.length;
-  $('next-level-btn').style.display = (passed && nextExists) ? '' : 'none';
-
-  if (passed) {
+  if (level.survival) {
+    // Survival: save high score
     const progress = loadProgress();
+    const prevHigh = progress.survivalHigh || 0;
+    if (score > prevHigh) {
+      progress.survivalHigh = score;
+      saveProgress(progress);
+    }
+    // Always mark survival as "completed" so next level unlocks
     progress[`level_${currentLevel}`] = true;
     saveProgress(progress);
+
+    $('complete-title').textContent = 'Game Over';
+    $('complete-score').textContent = `You got ${score} correct`;
+    const best = Math.max(score, prevHigh);
+    $('complete-msg').textContent = score >= prevHigh && score > 0
+      ? `New best! Previous: ${prevHigh}`
+      : `Best: ${best}`;
+  } else {
+    const passed = lives > 0;
+    $('complete-title').textContent = passed ? 'Level Complete!' : 'Out of Lives';
+    $('complete-score').textContent = `${score} correct out of ${questionNum}`;
+    $('complete-msg').textContent = passed
+      ? `Finished with ${lives} ${lives === 1 ? 'life' : 'lives'} left`
+      : 'Try again!';
+
+    if (passed) {
+      const progress = loadProgress();
+      progress[`level_${currentLevel}`] = true;
+      saveProgress(progress);
+    }
+
+    const nextExists = currentLevel + 1 < LEVELS.length;
+    $('next-level-btn').style.display = (passed && nextExists) ? '' : 'none';
   }
 
   showScreen('complete-screen');
@@ -404,9 +516,7 @@ function setupTapButton(btnId, inputDisplayId) {
       inputBuffer += '-';
     }
     updateInputDisplay(inputDisplayId);
-
     if (navigator.vibrate) navigator.vibrate(duration < 200 ? 20 : 40);
-
     scheduleAutoSubmit(inputDisplayId);
   }
 
@@ -423,9 +533,12 @@ function setupTapButton(btnId, inputDisplayId) {
 // Space key for word levels
 document.addEventListener('keydown', e => {
   if (e.code === 'Space') {
-    e.preventDefault();
     const activeScreen = document.querySelector('.screen.active');
     if (activeScreen && (activeScreen.id === 'game-screen' || activeScreen.id === 'practice-screen')) {
+      // Don't prevent default if reverse-input is focused
+      const level = LEVELS[currentLevel];
+      if (level && level.reverse) return;
+      e.preventDefault();
       inputBuffer += ' ';
       const displayId = activeScreen.id === 'game-screen' ? 'input-display' : 'practice-input';
       updateInputDisplay(displayId);
@@ -493,6 +606,17 @@ function practiceCheck() {
   }, correct ? 800 : 1800);
 }
 
+// Reverse mode: submit on Enter
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    const level = LEVELS[currentLevel];
+    if (level && level.reverse && document.querySelector('#game-screen.active')) {
+      e.preventDefault();
+      checkAnswer();
+    }
+  }
+});
+
 // WIRE UP EVENTS
 function init() {
   setupTapButton('tap-btn', 'input-display');
@@ -505,7 +629,12 @@ function init() {
   });
 
   $('hear-btn').addEventListener('click', () => {
-    playMorse(getExpected());
+    const level = LEVELS[currentLevel];
+    if (level && level.reverse) {
+      playMorse(MORSE[currentChar]);
+    } else {
+      playMorse(getExpected());
+    }
   });
 
   $('back-btn').addEventListener('click', () => {
@@ -557,6 +686,9 @@ function init() {
     clearTimeout(autoSubmitTimeout);
     renderMenu();
   });
+
+  // Reverse mode submit button
+  $('reverse-submit-btn').addEventListener('click', () => checkAnswer());
 
   renderMenu();
 }
