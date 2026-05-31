@@ -9,32 +9,96 @@ const MORSE = {
 
 // Level definitions
 const LEVELS = [
-  { name: 'Level 1 — The Basics',     chars: ['E','T'],                                               desc: 'dot & dash' },
-  { name: 'Level 2 — Short Codes',    chars: ['A','I','M','N'],                                       desc: '2-symbol letters' },
-  { name: 'Level 3 — Building Up',    chars: ['D','G','K','O','R','S','U','W'],                       desc: '3-symbol letters' },
-  { name: 'Level 4 — Full Alphabet',  chars: ['B','C','F','H','J','L','P','Q','V','X','Y','Z'],       desc: '4-symbol letters' },
-  { name: 'Level 5 — Numbers',        chars: ['0','1','2','3','4','5','6','7','8','9'],                desc: '0-9' },
-  { name: 'Level 6 — A-Z Review',     chars: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split(''),                  desc: 'all letters' },
-  { name: 'Level 7 — Everything',     chars: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'.split(''),         desc: 'letters + numbers' },
-  { name: 'Level 8 — Common Words',   chars: null, words: ['SOS','HI','OK','GO','NO','YES','HELP','CQ','73','88'], desc: 'words' },
-  { name: 'Level 9 — Speed Round',    chars: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split(''),                  desc: 'timed!', timed: true, timeLimit: 6000 },
-  { name: 'Level 10 — Free Practice', chars: null, practice: true,                                    desc: 'no pressure' },
+  { name: 'Level 1: The Basics',     chars: ['E','T'],                                               desc: 'dot & dash' },
+  { name: 'Level 2: Short Codes',    chars: ['A','I','M','N'],                                       desc: '2-symbol letters' },
+  { name: 'Level 3: Building Up',    chars: ['D','G','K','O','R','S','U','W'],                       desc: '3-symbol letters' },
+  { name: 'Level 4: Full Alphabet',  chars: ['B','C','F','H','J','L','P','Q','V','X','Y','Z'],       desc: '4-symbol letters' },
+  { name: 'Level 5: Numbers',        chars: ['0','1','2','3','4','5','6','7','8','9'],                desc: '0-9' },
+  { name: 'Level 6: A-Z Review',     chars: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split(''),                  desc: 'all letters' },
+  { name: 'Level 7: Everything',     chars: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'.split(''),         desc: 'letters + numbers' },
+  { name: 'Level 8: Common Words',   chars: null, words: ['SOS','HI','OK','GO','NO','YES','HELP','CQ','73','88'], desc: 'words' },
+  { name: 'Level 9: Speed Round',    chars: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split(''),                  desc: 'timed!', timed: true, timeLimit: 6000 },
+  { name: 'Level 10: Free Practice', chars: null, practice: true,                                    desc: 'no pressure' },
 ];
 
 const QUESTIONS_PER_LEVEL = 10;
 const PASS_THRESHOLD = 8;
+const AUTO_SUBMIT_DELAY = 1200; // ms of silence before auto-checking
+const WORD_AUTO_SUBMIT_DELAY = 1800;
+
+// Audio
+let audioCtx = null;
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function playTone(durationMs, freq = 600) {
+  const ctx = getAudioCtx();
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = 'sine';
+  osc.frequency.value = freq;
+  gain.gain.value = 0.3;
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start(ctx.currentTime);
+  osc.stop(ctx.currentTime + durationMs / 1000);
+}
+
+function playDot() { playTone(80); }
+function playDash() { playTone(240); }
+
+// Play a morse string as audio
+async function playMorse(morseStr) {
+  const ctx = getAudioCtx();
+  let time = ctx.currentTime;
+  const dotLen = 0.08;
+  const dashLen = 0.24;
+  const gap = 0.1;
+  const letterGap = 0.3;
+
+  for (const ch of morseStr) {
+    if (ch === '.') {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = 600;
+      gain.gain.value = 0.3;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(time);
+      osc.stop(time + dotLen);
+      time += dotLen + gap;
+    } else if (ch === '-') {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = 600;
+      gain.gain.value = 0.3;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(time);
+      osc.stop(time + dashLen);
+      time += dashLen + gap;
+    } else if (ch === ' ') {
+      time += letterGap;
+    }
+  }
+}
 
 // State
 let currentLevel = 0;
 let currentChar = '';
 let currentWord = '';
-let currentWordIndex = 0;
 let inputBuffer = '';
 let score = 0;
 let questionNum = 0;
 let pressStart = 0;
 let timerInterval = null;
 let timerStart = 0;
+let autoSubmitTimeout = null;
+let isProcessing = false; // prevent double-submit
 
 // Elements
 const $ = id => document.getElementById(id);
@@ -75,6 +139,8 @@ function renderMenu() {
     `;
     btn.addEventListener('click', () => {
       if (!unlocked) return;
+      // Init audio on user gesture
+      getAudioCtx();
       if (level.practice) {
         startPractice();
       } else {
@@ -92,6 +158,7 @@ function startLevel(levelIndex) {
   const level = LEVELS[levelIndex];
   score = 0;
   questionNum = 0;
+  isProcessing = false;
   $('level-title').textContent = level.name;
   updateScore();
 
@@ -107,6 +174,10 @@ function startLevel(levelIndex) {
     $('game-screen').querySelector('.prompt-area').before(container);
   }
 
+  // Add/remove space button for word levels
+  removeSpaceButton();
+  if (level.words) addSpaceButton();
+
   showScreen('game-screen');
   nextQuestion();
 }
@@ -119,13 +190,13 @@ function nextQuestion() {
   }
 
   inputBuffer = '';
+  isProcessing = false;
+  clearTimeout(autoSubmitTimeout);
   updateInputDisplay('input-display');
   clearFeedback('feedback');
 
   if (level.words) {
-    // Word mode: pick a random word, show it
     currentWord = level.words[Math.floor(Math.random() * level.words.length)];
-    currentWordIndex = 0;
     currentChar = currentWord[0];
     $('prompt-char').textContent = currentWord;
     $('prompt-char').style.fontSize = currentWord.length > 3 ? '3.5rem' : '5rem';
@@ -137,8 +208,6 @@ function nextQuestion() {
   }
 
   updateScore();
-
-  // Start timer for speed round
   if (level.timed) startTimer(level.timeLimit);
 }
 
@@ -163,7 +232,7 @@ function showFeedback(elementId, correct, expected) {
     el.textContent = 'Correct!';
     el.className = 'feedback correct';
   } else {
-    el.textContent = `Wrong — it's ${expected}`;
+    el.textContent = `Nope: ${expected}`;
     el.className = 'feedback wrong';
   }
 }
@@ -185,37 +254,55 @@ function startTimer(ms) {
 
     if (elapsed >= ms) {
       clearInterval(timerInterval);
-      // Time's up — count as wrong
       handleAnswer(false, getExpected());
     }
   }, 50);
 }
 
 function getExpected() {
-  if (LEVELS[currentLevel].words) {
+  if (LEVELS[currentLevel] && LEVELS[currentLevel].words) {
     return currentWord.split('').map(c => MORSE[c]).join(' ');
   }
   return MORSE[currentChar];
 }
 
+// Auto-submit: check after user stops tapping
+function scheduleAutoSubmit(displayId) {
+  clearTimeout(autoSubmitTimeout);
+  if (isProcessing) return;
+  const level = LEVELS[currentLevel];
+  const delay = (level && level.words) ? WORD_AUTO_SUBMIT_DELAY : AUTO_SUBMIT_DELAY;
+  const isGameScreen = displayId === 'input-display';
+
+  autoSubmitTimeout = setTimeout(() => {
+    if (!inputBuffer.trim()) return;
+    if (isGameScreen) {
+      checkAnswer();
+    } else {
+      practiceCheck();
+    }
+  }, delay);
+}
+
 // Check answer
 async function checkAnswer() {
+  if (isProcessing) return;
+  isProcessing = true;
+  clearTimeout(autoSubmitTimeout);
   const level = LEVELS[currentLevel];
   clearInterval(timerInterval);
 
   let expected, correct;
 
   if (level.words) {
-    // For words: expected is each letter's morse separated by space
     expected = currentWord.split('').map(c => MORSE[c]).join(' ');
-    // User input: dots/dashes with spaces between letters
     correct = inputBuffer.trim() === expected;
   } else {
     expected = MORSE[currentChar];
     correct = inputBuffer.trim() === expected;
   }
 
-  // Also verify with backend
+  // Verify with backend
   try {
     const res = await fetch('/api/check', {
       method: 'POST',
@@ -226,7 +313,7 @@ async function checkAnswer() {
     correct = data.correct;
     expected = data.expected;
   } catch {
-    // Offline fallback: use client-side check
+    // Offline fallback
   }
 
   handleAnswer(correct, expected);
@@ -238,11 +325,18 @@ function handleAnswer(correct, expected) {
   showFeedback('feedback', correct, expected);
   if (navigator.vibrate) navigator.vibrate(correct ? 50 : [100, 50, 100]);
 
-  setTimeout(() => nextQuestion(), correct ? 800 : 1500);
+  // Play correct answer audio on wrong
+  if (!correct) {
+    setTimeout(() => playMorse(expected), 300);
+  }
+
+  const delay = correct ? 800 : 1800;
+  setTimeout(() => nextQuestion(), delay);
 }
 
 function endLevel() {
   clearInterval(timerInterval);
+  clearTimeout(autoSubmitTimeout);
   const passed = score >= PASS_THRESHOLD;
 
   $('complete-title').textContent = passed ? 'Level Complete!' : 'Not Quite...';
@@ -251,7 +345,6 @@ function endLevel() {
     ? 'Nice work! Keep going.'
     : `You need ${PASS_THRESHOLD} to pass. Try again!`;
 
-  // Show/hide next level button
   const nextExists = currentLevel + 1 < LEVELS.length;
   $('next-level-btn').style.display = (passed && nextExists) ? '' : 'none';
 
@@ -270,26 +363,31 @@ function setupTapButton(btnId, inputDisplayId) {
 
   function onDown(e) {
     e.preventDefault();
+    if (isProcessing) return;
     pressStart = Date.now();
     btn.classList.add('pressing');
   }
 
   function onUp(e) {
     e.preventDefault();
-    if (!pressStart) return;
+    if (!pressStart || isProcessing) return;
     const duration = Date.now() - pressStart;
     pressStart = 0;
     btn.classList.remove('pressing');
 
-    const isWord = LEVELS[currentLevel] && LEVELS[currentLevel].words;
     if (duration < 200) {
       inputBuffer += '.';
+      playDot();
     } else {
       inputBuffer += '-';
+      playDash();
     }
     updateInputDisplay(inputDisplayId);
 
     if (navigator.vibrate) navigator.vibrate(duration < 200 ? 20 : 40);
+
+    // Schedule auto-submit
+    scheduleAutoSubmit(inputDisplayId);
   }
 
   btn.addEventListener('pointerdown', onDown);
@@ -298,11 +396,10 @@ function setupTapButton(btnId, inputDisplayId) {
     pressStart = 0;
     btn.classList.remove('pressing');
   });
-  // Prevent context menu on long press
   btn.addEventListener('contextmenu', e => e.preventDefault());
 }
 
-// WORD MODE: space key or button to separate letters
+// Space key for word levels
 document.addEventListener('keydown', e => {
   if (e.code === 'Space') {
     e.preventDefault();
@@ -311,13 +408,13 @@ document.addEventListener('keydown', e => {
       inputBuffer += ' ';
       const displayId = activeScreen.id === 'game-screen' ? 'input-display' : 'practice-input';
       updateInputDisplay(displayId);
+      scheduleAutoSubmit(displayId);
     }
   }
 });
 
-// Add space button for word levels
+// Space button for word levels
 function addSpaceButton() {
-  // Check if already exists
   if (document.getElementById('space-btn')) return;
   const row = document.querySelector('#game-screen .action-row');
   const spaceBtn = document.createElement('button');
@@ -327,8 +424,9 @@ function addSpaceButton() {
   spaceBtn.addEventListener('click', () => {
     inputBuffer += ' ';
     updateInputDisplay('input-display');
+    scheduleAutoSubmit('input-display');
   });
-  row.insertBefore(spaceBtn, $('submit-btn'));
+  row.appendChild(spaceBtn);
 }
 
 function removeSpaceButton() {
@@ -338,6 +436,7 @@ function removeSpaceButton() {
 
 // FREE PRACTICE
 function startPractice() {
+  isProcessing = false;
   const allChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'.split('');
   currentChar = allChars[Math.floor(Math.random() * allChars.length)];
   inputBuffer = '';
@@ -349,11 +448,20 @@ function startPractice() {
 }
 
 function practiceCheck() {
+  if (isProcessing) return;
+  isProcessing = true;
+  clearTimeout(autoSubmitTimeout);
   const expected = MORSE[currentChar];
   const correct = inputBuffer.trim() === expected;
   showFeedback('practice-feedback', correct, expected);
   if (navigator.vibrate) navigator.vibrate(correct ? 50 : [100, 50, 100]);
+
+  if (!correct) {
+    setTimeout(() => playMorse(expected), 300);
+  }
+
   setTimeout(() => {
+    isProcessing = false;
     inputBuffer = '';
     updateInputDisplay('practice-input');
     const allChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'.split('');
@@ -361,7 +469,7 @@ function practiceCheck() {
     $('practice-char').textContent = currentChar;
     clearFeedback('practice-feedback');
     $('practice-ref').textContent = `Hint: ${currentChar} = ${MORSE[currentChar]}`;
-  }, 1000);
+  }, correct ? 800 : 1800);
 }
 
 // WIRE UP EVENTS
@@ -371,13 +479,17 @@ function init() {
 
   $('clear-btn').addEventListener('click', () => {
     inputBuffer = '';
+    clearTimeout(autoSubmitTimeout);
     updateInputDisplay('input-display');
   });
 
-  $('submit-btn').addEventListener('click', () => checkAnswer());
+  $('hear-btn').addEventListener('click', () => {
+    playMorse(getExpected());
+  });
 
   $('back-btn').addEventListener('click', () => {
     clearInterval(timerInterval);
+    clearTimeout(autoSubmitTimeout);
     removeSpaceButton();
     renderMenu();
   });
@@ -403,11 +515,16 @@ function init() {
   // Practice controls
   $('practice-clear-btn').addEventListener('click', () => {
     inputBuffer = '';
+    clearTimeout(autoSubmitTimeout);
     updateInputDisplay('practice-input');
   });
-  $('practice-submit-btn').addEventListener('click', () => practiceCheck());
+  $('practice-hear-btn').addEventListener('click', () => {
+    playMorse(MORSE[currentChar]);
+  });
   $('practice-skip-btn').addEventListener('click', () => {
+    isProcessing = false;
     inputBuffer = '';
+    clearTimeout(autoSubmitTimeout);
     updateInputDisplay('practice-input');
     clearFeedback('practice-feedback');
     const allChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'.split('');
@@ -415,25 +532,12 @@ function init() {
     $('practice-char').textContent = currentChar;
     $('practice-ref').textContent = `Hint: ${currentChar} = ${MORSE[currentChar]}`;
   });
-  $('practice-back-btn').addEventListener('click', () => renderMenu());
-
-  // Watch for word-level to add/remove space button
-  const origNextQ = nextQuestion;
+  $('practice-back-btn').addEventListener('click', () => {
+    clearTimeout(autoSubmitTimeout);
+    renderMenu();
+  });
 
   renderMenu();
 }
-
-// Override nextQuestion to manage space button
-const _origNextQuestion = nextQuestion;
-
-// Patch startLevel to handle space button
-const _origStartLevel = startLevel;
-startLevel = function(levelIndex) {
-  removeSpaceButton();
-  _origStartLevel(levelIndex);
-  if (LEVELS[levelIndex].words) {
-    addSpaceButton();
-  }
-};
 
 init();
