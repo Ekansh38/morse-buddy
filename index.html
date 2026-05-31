@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>MorseBuddy</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- MENU SCREEN -->
+  <div id="menu-screen" class="screen active">
+    <h1>MorseBuddy</h1>
+    <p class="subtitle">Learn Morse code by tapping</p>
+    <div id="level-list"></div>
+  </div>
+
+  <!-- GAME SCREEN -->
+  <div id="game-screen" class="screen">
+    <div class="top-bar">
+      <button id="back-btn" class="icon-btn">&larr;</button>
+      <span id="level-title">Level 1</span>
+      <span id="score-display">0 / 10</span>
+    </div>
+
+    <div class="prompt-area">
+      <div class="prompt-label">Tap the Morse code for</div>
+      <div id="prompt-char" class="prompt-char">E</div>
+    </div>
+
+    <div id="input-display" class="input-display">&nbsp;</div>
+
+    <div class="controls">
+      <button id="tap-btn" class="tap-btn">TAP</button>
+      <div class="action-row">
+        <button id="clear-btn" class="action-btn">Clear</button>
+        <button id="submit-btn" class="action-btn primary">Check</button>
+      </div>
+    </div>
+
+    <div id="feedback" class="feedback"></div>
+  </div>
+
+  <!-- LEVEL COMPLETE SCREEN -->
+  <div id="complete-screen" class="screen">
+    <h2 id="complete-title">Level Complete!</h2>
+    <p id="complete-score"></p>
+    <p id="complete-msg"></p>
+    <button id="next-level-btn" class="action-btn primary">Next Level</button>
+    <button id="retry-btn" class="action-btn">Retry</button>
+    <button id="menu-btn" class="action-btn">Menu</button>
+  </div>
+
+  <!-- FREE PRACTICE SCREEN -->
+  <div id="practice-screen" class="screen">
+    <div class="top-bar">
+      <button id="practice-back-btn" class="icon-btn">&larr;</button>
+      <span>Free Practice</span>
+      <span></span>
+    </div>
+
+    <div class="prompt-area">
+      <div class="prompt-label">Tap the Morse code for</div>
+      <div id="practice-char" class="prompt-char">A</div>
+    </div>
+
+    <div id="practice-input" class="input-display">&nbsp;</div>
+
+    <div class="controls">
+      <button id="practice-tap-btn" class="tap-btn">TAP</button>
+      <div class="action-row">
+        <button id="practice-clear-btn" class="action-btn">Clear</button>
+        <button id="practice-submit-btn" class="action-btn primary">Check</button>
+        <button id="practice-skip-btn" class="action-btn">Skip</button>
+      </div>
+    </div>
+
+    <div id="practice-feedback" class="feedback"></div>
+    <div id="practice-ref" class="reference-hint"></div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
