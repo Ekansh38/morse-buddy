@@ -7,17 +7,26 @@ const MORSE = {
   '5':'.....','6':'-....','7':'--...','8':'---..','9':'----.'
 };
 
-// Cumulative level definitions - each level ADDS new chars to all previous ones
+// Cumulative levels - just 2 new letters at a time
 const LEVEL_NEW_CHARS = [
-  ['E','T'],
-  ['A','I','M','N'],
-  ['D','G','K','O'],
-  ['R','S','U','W'],
-  ['B','C','F','H'],
-  ['J','L','P','Q'],
-  ['V','X','Y','Z'],
-  ['0','1','2','3','4'],
-  ['5','6','7','8','9'],
+  ['E','T'],       // 1 dot, 1 dash
+  ['A','N'],       // .- , -.
+  ['I','M'],       // .. , --
+  ['S','O'],       // ... , ---
+  ['R','G'],       // .-. , --.
+  ['D','K'],       // -.. , -.-
+  ['U','W'],       // ..- , .--
+  ['H','B'],       // .... , -...
+  ['L','F'],       // .-.. , ..-.
+  ['C','P'],       // -.-. , .--.
+  ['J','Q'],       // .--- , --.-
+  ['V','X'],       // ...- , -..-
+  ['Y','Z'],       // -.-- , --..
+  ['1','2'],
+  ['3','4'],
+  ['5','6'],
+  ['7','8'],
+  ['9','0'],
 ];
 
 // Build cumulative char sets
@@ -33,20 +42,29 @@ function buildCumulativeChars() {
 const CUMULATIVE = buildCumulativeChars();
 
 const LEVELS = [
-  { name: 'Level 1: E and T',          chars: CUMULATIVE[0],  newChars: LEVEL_NEW_CHARS[0], desc: 'E T', questions: 8,  lives: 5 },
-  { name: 'Level 2: + A I M N',        chars: CUMULATIVE[1],  newChars: LEVEL_NEW_CHARS[1], desc: '+ A I M N', questions: 10, lives: 4 },
-  { name: 'Level 3: + D G K O',        chars: CUMULATIVE[2],  newChars: LEVEL_NEW_CHARS[2], desc: '+ D G K O', questions: 10, lives: 4 },
-  { name: 'Level 4: + R S U W',        chars: CUMULATIVE[3],  newChars: LEVEL_NEW_CHARS[3], desc: '+ R S U W', questions: 12, lives: 4 },
-  { name: 'Level 5: + B C F H',        chars: CUMULATIVE[4],  newChars: LEVEL_NEW_CHARS[4], desc: '+ B C F H', questions: 12, lives: 3 },
-  { name: 'Level 6: + J L P Q',        chars: CUMULATIVE[5],  newChars: LEVEL_NEW_CHARS[5], desc: '+ J L P Q', questions: 12, lives: 3 },
-  { name: 'Level 7: + V X Y Z',        chars: CUMULATIVE[6],  newChars: LEVEL_NEW_CHARS[6], desc: 'full alphabet!', questions: 14, lives: 3 },
-  { name: 'Level 8: + 0-4',            chars: CUMULATIVE[7],  newChars: LEVEL_NEW_CHARS[7], desc: '+ numbers 0-4', questions: 12, lives: 3 },
-  { name: 'Level 9: + 5-9',            chars: CUMULATIVE[8],  newChars: LEVEL_NEW_CHARS[8], desc: 'all chars!', questions: 14, lives: 3 },
-  { name: 'Level 10: Survival',        chars: CUMULATIVE[8],  newChars: null, desc: 'how far can you go?', questions: Infinity, lives: 3, survival: true },
-  { name: 'Level 11: Speed Round',     chars: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split(''), newChars: null, desc: '5s per letter', questions: 15, lives: 3, timed: true, timeLimit: 5000 },
-  { name: 'Level 12: Common Words',    chars: null, newChars: null, words: ['SOS','HI','OK','GO','NO','YES','HELP','CQ','73','88'], desc: 'tap full words', questions: 10, lives: 3 },
-  { name: 'Level 13: Reverse Mode',    chars: CUMULATIVE[8],  newChars: null, desc: 'hear it, type the letter', questions: 12, lives: 3, reverse: true },
-  { name: 'Level 14: Free Practice',   chars: null, newChars: null, practice: true, desc: 'no pressure' },
+  { name: 'Level 1: E T',       chars: CUMULATIVE[0],  newChars: LEVEL_NEW_CHARS[0],  desc: 'dot and dash',    questions: 6,  lives: 5 },
+  { name: 'Level 2: + A N',     chars: CUMULATIVE[1],  newChars: LEVEL_NEW_CHARS[1],  desc: '+ A N',           questions: 6,  lives: 5 },
+  { name: 'Level 3: + I M',     chars: CUMULATIVE[2],  newChars: LEVEL_NEW_CHARS[2],  desc: '+ I M',           questions: 6,  lives: 5 },
+  { name: 'Level 4: + S O',     chars: CUMULATIVE[3],  newChars: LEVEL_NEW_CHARS[3],  desc: '+ S O',           questions: 8,  lives: 5 },
+  { name: 'Level 5: + R G',     chars: CUMULATIVE[4],  newChars: LEVEL_NEW_CHARS[4],  desc: '+ R G',           questions: 8,  lives: 4 },
+  { name: 'Level 6: + D K',     chars: CUMULATIVE[5],  newChars: LEVEL_NEW_CHARS[5],  desc: '+ D K',           questions: 8,  lives: 4 },
+  { name: 'Level 7: + U W',     chars: CUMULATIVE[6],  newChars: LEVEL_NEW_CHARS[6],  desc: '+ U W',           questions: 8,  lives: 4 },
+  { name: 'Level 8: + H B',     chars: CUMULATIVE[7],  newChars: LEVEL_NEW_CHARS[7],  desc: '+ H B',           questions: 8,  lives: 4 },
+  { name: 'Level 9: + L F',     chars: CUMULATIVE[8],  newChars: LEVEL_NEW_CHARS[8],  desc: '+ L F',           questions: 8,  lives: 4 },
+  { name: 'Level 10: + C P',    chars: CUMULATIVE[9],  newChars: LEVEL_NEW_CHARS[9],  desc: '+ C P',           questions: 8,  lives: 4 },
+  { name: 'Level 11: + J Q',    chars: CUMULATIVE[10], newChars: LEVEL_NEW_CHARS[10], desc: '+ J Q',           questions: 8,  lives: 4 },
+  { name: 'Level 12: + V X',    chars: CUMULATIVE[11], newChars: LEVEL_NEW_CHARS[11], desc: '+ V X',           questions: 8,  lives: 4 },
+  { name: 'Level 13: + Y Z',    chars: CUMULATIVE[12], newChars: LEVEL_NEW_CHARS[12], desc: 'full alphabet!',  questions: 10, lives: 4 },
+  { name: 'Level 14: + 1 2',    chars: CUMULATIVE[13], newChars: LEVEL_NEW_CHARS[13], desc: '+ 1 2',           questions: 8,  lives: 4 },
+  { name: 'Level 15: + 3 4',    chars: CUMULATIVE[14], newChars: LEVEL_NEW_CHARS[14], desc: '+ 3 4',           questions: 8,  lives: 4 },
+  { name: 'Level 16: + 5 6',    chars: CUMULATIVE[15], newChars: LEVEL_NEW_CHARS[15], desc: '+ 5 6',           questions: 8,  lives: 4 },
+  { name: 'Level 17: + 7 8',    chars: CUMULATIVE[16], newChars: LEVEL_NEW_CHARS[16], desc: '+ 7 8',           questions: 8,  lives: 4 },
+  { name: 'Level 18: + 9 0',    chars: CUMULATIVE[17], newChars: LEVEL_NEW_CHARS[17], desc: 'all characters!', questions: 10, lives: 4 },
+  { name: 'Level 19: Survival', chars: CUMULATIVE[17], newChars: null, desc: 'how far can you go?', questions: Infinity, lives: 3, survival: true },
+  { name: 'Level 20: Speed',    chars: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split(''), newChars: null, desc: '8s per letter', questions: 15, lives: 3, timed: true, timeLimit: 8000 },
+  { name: 'Level 21: Words',    chars: null, newChars: null, words: ['SOS','HI','OK','GO','NO','YES','HELP','CQ','73','88'], desc: 'tap words', questions: 10, lives: 4 },
+  { name: 'Level 22: Reverse',  chars: CUMULATIVE[17], newChars: null, desc: 'hear it, type it', questions: 12, lives: 4, reverse: true },
+  { name: 'Free Practice',      chars: null, newChars: null, practice: true, desc: 'no pressure' },
 ];
 
 const AUTO_SUBMIT_DELAY = 1200;
